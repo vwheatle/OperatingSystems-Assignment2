@@ -13,17 +13,15 @@ int main() {
 	}
 	
 	auto data = dataOpt.value();
-	if (data.empty()) {
-		std::cout << "Something went wrong during parsing!" << std::endl;
-		exit(EXIT_FAILURE);
+	std::cout << "Resources:" << std::endl;
+	for (const auto& rsrc : data.resources) {
+		std::cout << "Resource: { " << rsrc.available << " / " << rsrc.total << " }" << std::endl;
 	}
-	
-	std::cout << "Loaded data, here's information about each resource:" << std::endl;
-	for (const auto& item : data) {
-		std::cout << "Resource: { " << std::endl;
-		std::cout << '\t' << item.total << std::endl;
-		std::cout << '\t'; printVector(item.allocated);
-		std::cout << '\t'; printVector(item.maximum);
+	std::cout << "Processes:" << std::endl;
+	for (const auto& proc : data.processes) {
+		std::cout << "Process: { " << std::endl;
+		std::cout << "\t Allocated: "; printVector(proc.allocated);
+		std::cout << "\t Maximum:   "; printVector(proc.maximum);
 		std::cout << "}" << std::endl;
 	}
 	

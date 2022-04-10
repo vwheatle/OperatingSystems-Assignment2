@@ -7,6 +7,7 @@
 #include <string>
 
 #include <algorithm>
+#include <numeric>
 
 #include <optional> // -> Option<T> -- or i mean.. std::optional<T>
 
@@ -60,51 +61,43 @@ auto spaceSeparatedNumbers(const std::string& s) -> std::vector<int> {
 	return res;
 }
 
-// Given an input stream and a buffer, this maybe returns the columns of a
-// chunk of the file that looks like:
-// 1 2 3\n
-// 4 5 6\n
-// 7 8 9\n
-// \n
-// So that'd return { { 1, 4, 7 }, { 2, 5, 8 }, { 3, 6, 9 } }
-// Plus, you ~~can~~ have to specify a required size for each of these columns.
-// Also yes, it does eat the empty line.
-// Nigh-useless for anyone who's not me.
-auto linesOfSpaceSeparatedNumbersAsColumnVectors(
-	std::fstream& stream,
-	std::string& buff,
-	int requiredSize = 3
-) -> std::optional<std::vector<std::vector<int>>> {
-	std::vector<std::vector<int>> result;
-	result.resize(requiredSize);
-	// resize will initialize every vector inside with the correct value.
-	// reserve just makes space for them. not good! leads to segfault.
-	
-	while (std::getline(stream, buff), !buff.empty()) {
-		auto lineNums = spaceSeparatedNumbers(buff);
-		if (requiredSize != lineNums.size()) return std::nullopt;
-		
-		for (auto i = 0; i < requiredSize; i++) {
-			result[i].push_back(lineNums[i]);
-		}
-	}
-	
-	return std::optional(result);
-}
-
 namespace BankerData {
-	// Yeah, I'm slicing the data column-wise, because I think I'll do column
-	// operations more often than row operations. If I'm wrong, I'll fix it.
 	struct Resource {
+		int available;
 		int total;
+	};
+	
+	struct Process {
 		std::vector<int> allocated;
 		std::vector<int> maximum;
 	};
 	
-	auto load(const std::string& filename) -> std::optional<std::vector<Resource>> {
+	struct ProcessResourceMatrix {
+		std::vector<Resource> resources;
+		std::vector<Process> processes;
+		
+		// Sets the `available` field on all resources to their correct values.
+		void updateResources() {
+			auto i = 0;
+			for (auto& rsrc : resources) {
+				auto sum = std::accumulate(
+					processes.cbegin(), processes.cend(),
+					0, [i](auto acc, const Process& proc) {
+						return acc + proc.allocated[i];
+					}
+				);
+				rsrc.available = rsrc.total - sum;
+				i++;
+			}
+		}
+	};
+	
+	auto load(const std::string& filename) -> std::optional<ProcessResourceMatrix> {
+		#define opt_assert(x) do if (!(x)) return std::nullopt; while (0)
+		
 		// Open the file, and return None if it fails.
 		std::fstream file; file.open(filename, std::ios::in);
-		if (file.fail()) return std::nullopt;
+		opt_assert(!file.fail());
 		
 		// Here's the buffer we'll repeatedly write to, for reading lines!
 		std::string buff; buff.reserve(16);
@@ -115,39 +108,72 @@ namespace BankerData {
 		
 		// "Resources" section -- one line that determines both how many
 		//             resources exist and each resources' maximum value
-		if (nextLine() != "Resources") return std::nullopt;
+		opt_assert(nextLine() == "Resources");
 		auto rsrcTotals = spaceSeparatedNumbers(nextLine());
-		int expectedWidth = rsrcTotals.size();
+		
+		// assert that there are at least some resources
+		auto rsrcCount = rsrcTotals.size();
+		opt_assert(rsrcCount);
 		
 		// assert that there's an empty line between these two sections
-		if (!nextLine().empty()) return std::nullopt;
+		opt_assert(nextLine().empty());
 		
 		// "Allocated" section -- each line representing a process
-		if (nextLine() != "Allocated") return std::nullopt;
-		auto rsrcsAllocatedOpt = linesOfSpaceSeparatedNumbersAsColumnVectors(file, buff, expectedWidth);
-		if (!rsrcsAllocatedOpt.has_value()) return std::nullopt;
-		auto rsrcsAllocated = *rsrcsAllocatedOpt;
+		opt_assert(nextLine() == "Allocated");
+		std::vector<std::vector<int>> procAllocatedRsrc;
+		while (std::getline(file, buff), !buff.empty()) {
+			auto line = spaceSeparatedNumbers(buff);
+			opt_assert(line.size() == rsrcCount);
+			procAllocatedRsrc.push_back(std::move(line));
+		}
 		
 		// empty line was consumed by prev fn, so we shouldn't check for it.
 		
 		// "Maximum" section -- each line representing a process
-		if (nextLine() != "Maximum") return std::nullopt;
-		auto rsrcsMaximumOpt = linesOfSpaceSeparatedNumbersAsColumnVectors(file, buff, expectedWidth);
-		if (!rsrcsMaximumOpt.has_value()) return std::nullopt;
-		auto rsrcsMaximum = *rsrcsMaximumOpt;
+		opt_assert(nextLine() == "Maximum");
+		std::vector<std::vector<int>> procMaximumRsrc;
+		while (std::getline(file, buff), !buff.empty()) {
+			auto line = spaceSeparatedNumbers(buff);
+			opt_assert(line.size() == rsrcCount);
+			procMaximumRsrc.push_back(std::move(line));
+		}
 		
 		// empty line was consumed by prev fn, so we shouldn't check for it.
 		
-		// Finally, format the vector correctly...
-		std::vector<Resource> result;
-		for (auto i = 0; i < rsrcTotals.size(); i++) {
-			result.push_back({
-				rsrcTotals[i],
-				std::move(rsrcsAllocated[i]),
-				std::move(rsrcsMaximum[i]),
+		// assert that both allocated and maximum are the same length.
+		opt_assert(procAllocatedRsrc.size() == procMaximumRsrc.size());
+		
+		// assert that there are at least some processes
+		auto procCount = procMaximumRsrc.size();
+		opt_assert(procCount);
+		
+		// Finally, format everything correctly...
+		
+		std::vector<Resource> resources;
+		for (size_t i = 0; i < rsrcCount; i++) {
+			resources.push_back({
+				.available = 0,
+				.total = rsrcTotals[i],
 			});
 		}
+		
+		std::vector<Process> processes;
+		for (size_t i = 0; i < procCount; i++) {
+			processes.push_back({
+				.allocated = std::move(procAllocatedRsrc[i]),
+				.maximum = std::move(procMaximumRsrc[i]),
+			});
+		}
+		
+		ProcessResourceMatrix result {
+			.resources = resources,
+			.processes = processes,
+		};
+		result.updateResources();
+		
 		// and return it!
 		return std::make_optional(result);
+		
+		#undef opt_assert
 	}
 };

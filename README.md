@@ -53,6 +53,8 @@ Here's the requirements doc, converted to Markdown for easy reading within edito
 
 uhhhhhhhhhhhhhhhhhhhhhhhhhh
 
+So there's a matrix of processes and their resource usage. Processes have a current acquired resources and a wanted resources. You have to see if there's enough for at least 1 process to terminate satisfied, and if none are satisfied after one sweep through the rows, then this is not satisfiable and therefore unsafe.
+
 ## Your last project was in C! Why are you using C++ now?
 
 C is good for interfacing with the Operating System. C++ is good for.. writing actual programs (okay, if I had my say then I'd be using Rust, but that's out of the question) and I need it for stuff like vectors and other good STL things. If I was still using C in this project, I'd have to malloc and free stuff, and I don't wanna bother with that.
