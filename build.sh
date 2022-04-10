@@ -1,9 +1,17 @@
 #!/bin/bash
 set -eu
 
-mkdir -p out
-
 # Yes this is slightly redundant, but also it works!
+
+if [[ "$@" =~ "clean" ]]
+then
+	echo "Cleaning..."
+	rm -rf ./out
+	mkdir -p out
+	exit 0
+fi
+
+mkdir -p out
 
 if [[ "$@" =~ "debug" ]] || [[ "$@" =~ "valgrind" ]]
 then
