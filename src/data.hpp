@@ -10,14 +10,19 @@
 
 #include <optional> // -> Option<T> -- or i mean.. std::optional<T>
 
-// Yeah, I'm slicing the data column-wise, because I think I'll do column
-// operations more often than row operations. If I'm wrong, then I'll live
-// with this anyway.
-struct Resource {
-	int total;
-	std::vector<int> allocated;
-	std::vector<int> maximum;
-};
+template <typename T>
+void printVector(const std::vector<T>& a) {
+	std::cout << "{ ";
+	for (const auto& s : a)
+		std::cout << s << ", ";
+	std::cout << "}" << std::endl;
+}
+void printVector(const std::vector<std::string>& a) {
+	std::cout << '{' << std::endl;
+	for (const auto& s : a)
+		std::cout << "\t\"" << s << "\"," << std::endl;
+	std::cout << '}' << std::endl;
+}
 
 auto splitString(
 	const std::string& s,
@@ -41,41 +46,42 @@ auto splitString(
 	return result;
 }
 
-template <typename T>
-void lookAtTheVector(const std::vector<T>& a) {
-	std::cout << "{ ";
-	for (const auto& s : a)
-		std::cout << s << ", ";
-	std::cout << "}" << std::endl;
-}
-void lookAtTheVector(const std::vector<std::string>& a) {
-	std::cout << '{' << std::endl;
-	for (const auto& s : a)
-		std::cout << "\t\"" << s << "\"," << std::endl;
-	std::cout << '}' << std::endl;
+auto spaceSeparatedNumbers(const std::string& s) -> std::vector<int> {
+	std::vector<std::string> sep = splitString(s, " ");
+	std::vector<int> res; res.reserve(sep.size());
+	for (const auto& v : sep) {
+		res.push_back(std::atoi(v.c_str()));
+	}
+	return res;
 }
 
-class CoolData {
-public:
-	static auto load(const std::string& filename) -> std::optional<std::vector<Resource>> {
+namespace BankerData {
+	// Yeah, I'm slicing the data column-wise, because I think I'll do column
+	// operations more often than row operations. If I'm wrong, then I'll live
+	// with this anyway.
+	struct Resource {
+		int total;
+		std::vector<int> allocated;
+		std::vector<int> maximum;
+	};
+	
+	auto load(const std::string& filename) -> std::optional<std::vector<Resource>> {
 		std::fstream file; file.open(filename, std::ios::in);
 		if (file.fail()) return std::nullopt;
 		
 		// Here's the buffer we'll repeatedly write to, for reading lines!
 		std::string buff; buff.reserve(16);
+		auto nextLine = [&file, &buff]() -> const std::string& {
+			std::getline(file, buff); return buff;
+		};
 		// getline skips over the \n.
 		
-		std::getline(file, buff);
-		if (buff != "Resources") return std::nullopt;
+		if (nextLine() != "Resources") return std::nullopt;
+		auto rsrcTotals = spaceSeparatedNumbers(nextLine());
 		
-		std::getline(file, buff);
-		auto rsrcTotals = spaceSeparatedNumbers(buff);
+		if (!nextLine().empty()) return std::nullopt;
 		
-		std::getline(file, buff);
-		if (!buff.empty()) return std::nullopt;
-		
-		std::getline(file, buff);
-		if (buff != "Allocated") return std::nullopt;
+		if (nextLine() != "Allocated") return std::nullopt;
 		
 		std::vector<std::vector<int>> rsrcsAllocated;
 		rsrcsAllocated.resize(rsrcTotals.size());
@@ -91,8 +97,7 @@ public:
 			}
 		}
 		
-		std::getline(file, buff);
-		if (buff != "Maximum") return std::nullopt;
+		if (nextLine() != "Maximum") return std::nullopt;
 		
 		std::vector<std::vector<int>> rsrcsMaximum;
 		rsrcsMaximum.resize(rsrcTotals.size());
@@ -115,15 +120,5 @@ public:
 			});
 		}
 		return std::make_optional(result);
-	}
-	
-private:
-	static auto spaceSeparatedNumbers(const std::string& s) -> std::vector<int> {
-		std::vector<std::string> sep = splitString(s, " ");
-		std::vector<int> res; res.reserve(sep.size());
-		for (const auto& v : sep) {
-			res.push_back(std::atoi(v.c_str()));
-		}
-		return res;
 	}
 };

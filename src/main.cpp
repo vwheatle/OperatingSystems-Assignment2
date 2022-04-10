@@ -6,11 +6,7 @@
 #include "data.hpp"
 
 int main() {
-	// lookAtTheVector(splitString("hello world i am so cool", " "));
-	// lookAtTheVector(splitString("hello world i am the opposite :(", " ", 4));
-	// lookAtTheVector(splitString("FEARS..EARS..COOL", ".."));
-	
-	auto dataOpt = CoolData::load("../src/data.txt");
+	auto dataOpt = BankerData::load("../src/data.txt");
 	if (!dataOpt.has_value()) {
 		std::cout << "Failed to load data file!" << std::endl;
 		exit(EXIT_FAILURE);
@@ -22,13 +18,14 @@ int main() {
 		exit(EXIT_FAILURE);
 	}
 	
+	std::cout << "Loaded data, here's information about each resource:" << std::endl;
 	for (const auto& item : data) {
 		std::cout << "Resource: { " << std::endl;
 		std::cout << '\t' << item.total << std::endl;
-		std::cout << '\t'; lookAtTheVector(item.allocated);
-		std::cout << '\t'; lookAtTheVector(item.maximum);
+		std::cout << '\t'; printVector(item.allocated);
+		std::cout << '\t'; printVector(item.maximum);
 		std::cout << "}" << std::endl;
 	}
 	
-	exit(EXIT_SUCCESS);
+	return EXIT_SUCCESS;
 }
