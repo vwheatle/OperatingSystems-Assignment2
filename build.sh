@@ -29,10 +29,15 @@ fi
 
 if [[ "$@" =~ "valgrind" ]]
 then
-	sayThing "Running Valgrind with example data..."
-	(cd out && valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=2 --track-fds=yes ./banker ../src/data.txt)
+	sayThing "Running Valgrind with example data 1..."
+	(cd out && valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=2 --track-fds=yes ./banker ../data1.txt)
 elif [[ "$@" =~ "run" ]]
 then
-	sayThing "Running with example data..."
-	(cd out && ./banker ../src/data.txt)
+	sayThing "Running with all example data..."
+	sayThing "	data1:"
+	(cd out && ./banker ../data1.txt)
+	sayThing "	data2:"
+	(cd out && ./banker ../data2.txt)
+	sayThing "	data3:"
+	(cd out && ./banker ../data3.txt)
 fi
