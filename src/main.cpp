@@ -17,17 +17,52 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 	
+	// Retrieve data from within the optional.
 	auto data = dataOpt.value();
-	std::cout << "Resources:" << std::endl;
-	for (const auto& rsrc : data.resources) {
-		std::cout << "Resource: { " << rsrc.available << " / " << rsrc.total << " }" << std::endl;
-	}
-	std::cout << "Processes:" << std::endl;
-	for (const auto& proc : data.processes) {
-		std::cout << "Process: { " << std::endl;
-		std::cout << "\t Allocated: "; printVector(proc.allocated);
-		std::cout << "\t Maximum:   "; printVector(proc.maximum);
-		std::cout << "}" << std::endl;
+	
+	// Store a list of which processes terminated when.
+	std::vector<int> terminationOrder;
+	auto procsToTerminate = data.processes.size();
+	terminationOrder.reserve(procsToTerminate);
+	
+	bool terminatedOne;
+	do {
+		// Was the algorithm able to terminate
+		// at least one process in this recent loop?
+		terminatedOne = false;
+		
+		// Loop through each process, terminating it
+		// if we have the proper resources to do so.
+		int i = 0;
+		for (auto& proc : data.processes) {
+			if (!proc.terminated && data.canTerminate(proc)) {
+				terminationOrder.push_back(i);
+				
+				data.terminate(proc);
+				terminatedOne = true;
+				procsToTerminate--;
+			}
+			i++;
+		}
+		
+		// Continue looping while there's still processes to terminate
+		// and while you're still making *some* progress every time.
+	} while (terminatedOne && procsToTerminate > 0);
+	
+	if (procsToTerminate > 0) {
+		// If there's still processes left to terminate, then...
+		std::cout << "This system is not in a safe state." << std::endl;
+		std::cout << procsToTerminate << " processes still must terminate, but they are deadlocked." << std::endl;
+	} else {
+		// Otherwise, we succeeded! Plus, we can show
+		// what order the processes terminated in.
+		std::cout << "This system is in a safe state. " << std::endl;
+		
+		std::cout << "Termination order:";
+		for (const auto& procNo : terminationOrder) {
+			std::cout << " P" << procNo;
+		}
+		std::cout << std::endl;
 	}
 	
 	return EXIT_SUCCESS;

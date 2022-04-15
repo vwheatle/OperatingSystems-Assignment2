@@ -21,13 +21,6 @@ void printVector(const std::vector<T>& a) {
 		std::cout << s << ", ";
 	std::cout << "}" << std::endl;
 }
-// Now with a special case for string vectors!
-void printVector(const std::vector<std::string>& a) {
-	std::cout << '{' << std::endl;
-	for (const auto& s : a)
-		std::cout << "\t\"" << s << "\"," << std::endl;
-	std::cout << '}' << std::endl;
-}
 
 // Splits a string with the given delimiter,
 // limiting the resulting vector to at most maxSplits elements.
@@ -72,6 +65,7 @@ namespace BankerData {
 	struct Process {
 		std::vector<int> allocated;
 		std::vector<int> maximum;
+		bool terminated = false;
 	};
 	
 	struct ProcessResourceMatrix {
@@ -100,6 +94,20 @@ namespace BankerData {
 					rsrc.total += proc.allocated[i];
 				i++;
 			}
+		}
+		
+		bool canTerminate(const Process& proc) const {
+			for (size_t i = 0; i < resources.size(); i++)
+				if (proc.maximum[i] - proc.allocated[i] > resources[i].available)
+					return false;
+			return true;
+		}
+		
+		void terminate(Process& proc) {
+			for (size_t i = 0; i < resources.size(); i++) {
+				resources[i].available += proc.allocated[i];
+			}
+			proc.terminated = true;
 		}
 	};
 	
