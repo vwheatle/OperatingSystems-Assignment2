@@ -5,11 +5,16 @@
 
 #include "data.hpp"
 
-int main() {
-	auto dataOpt = BankerData::load("../src/data.txt");
+int main(int argc, char* argv[]) {
+	if (argc < 2) {
+		std::cout << "Please specify a path to a data file." << std::endl;
+		return EXIT_FAILURE;
+	}
+	
+	auto dataOpt = BankerData::load(argv[1]);
 	if (!dataOpt.has_value()) {
 		std::cout << "Failed to load data file!" << std::endl;
-		exit(EXIT_FAILURE);
+		return EXIT_FAILURE;
 	}
 	
 	auto data = dataOpt.value();

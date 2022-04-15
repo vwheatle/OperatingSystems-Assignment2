@@ -1,4 +1,5 @@
 Resources
+Total
 10 5 7
 
 Allocated

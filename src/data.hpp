@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cerrno>
+
 #include <iostream>
 #include <fstream>
 
@@ -76,28 +78,47 @@ namespace BankerData {
 		std::vector<Resource> resources;
 		std::vector<Process> processes;
 		
-		// Sets the `available` field on all resources to their correct values.
-		void updateResources() {
+		// Sets the `available` field on all resources to their correct values,
+		// according to the `total` field.
+		void updateResourceAvailables() {
 			auto i = 0;
 			for (auto& rsrc : resources) {
-				auto sum = std::accumulate(
-					processes.cbegin(), processes.cend(),
-					0, [i](auto acc, const Process& proc) {
-						return acc + proc.allocated[i];
-					}
-				);
-				rsrc.available = rsrc.total - sum;
+				rsrc.available = rsrc.total;
+				for (const auto& proc : processes)
+					rsrc.available -= proc.allocated[i];
+				i++;
+			}
+		}
+		
+		// Sets the `total` field on all resources to their correct values,
+		// according to the `available` field.
+		void updateResourceTotals() {
+			auto i = 0;
+			for (auto& rsrc : resources) {
+				rsrc.total = rsrc.available;
+				for (const auto& proc : processes)
+					rsrc.total += proc.allocated[i];
 				i++;
 			}
 		}
 	};
 	
 	auto load(const std::string& filename) -> std::optional<ProcessResourceMatrix> {
-		#define opt_assert(x) do if (!(x)) return std::nullopt; while (0)
+		#define opt_assert(x, failMsg)\
+			do if (!(x)) {\
+				std::cout << failMsg << std::endl;\
+				return std::nullopt;\
+			} while (0)
+		
+		#define opt_assert_p(x, failMsg)\
+			do if (!(x)) {\
+				perror(failMsg);\
+				return std::nullopt;\
+			} while (0)
 		
 		// Open the file, and return None if it fails.
 		std::fstream file; file.open(filename, std::ios::in);
-		opt_assert(!file.fail());
+		opt_assert_p(!file.fail(), "File failed to open");
 		
 		// Here's the buffer we'll repeatedly write to, for reading lines!
 		std::string buff; buff.reserve(16);
@@ -106,55 +127,64 @@ namespace BankerData {
 		};
 		// getline skips over the \n.
 		
-		// "Resources" section -- one line that determines both how many
-		//             resources exist and each resources' maximum value
-		opt_assert(nextLine() == "Resources");
-		auto rsrcTotals = spaceSeparatedNumbers(nextLine());
+		opt_assert(nextLine() == "Resources", "\"Resources\" header missing or not in order");
+		
+		// Too lazy to do tagged unions, so this'll do.
+		bool rsrcIsTotal;
+		if (nextLine() == "Total") {
+			rsrcIsTotal = true;
+		} else if (buff == "Available") {
+			rsrcIsTotal = false;
+		} else {
+			opt_assert(false, "Neither \"Total\" or \"Available\" subheaders found in Resources section");
+		}
+		auto rsrcInfo = spaceSeparatedNumbers(nextLine());
 		
 		// assert that there are at least some resources
-		auto rsrcCount = rsrcTotals.size();
-		opt_assert(rsrcCount);
+		auto rsrcCount = rsrcInfo.size();
+		opt_assert(rsrcCount > 0, "No resources defined");
 		
 		// assert that there's an empty line between these two sections
-		opt_assert(nextLine().empty());
+		opt_assert(nextLine().empty(), "Empty line expected (between Resources and Allocated sections)");
 		
 		// "Allocated" section -- each line representing a process
-		opt_assert(nextLine() == "Allocated");
+		opt_assert(nextLine() == "Allocated", "\"Allocated\" header missing or not in order");
 		std::vector<std::vector<int>> procAllocatedRsrc;
 		while (std::getline(file, buff), !buff.empty()) {
 			auto line = spaceSeparatedNumbers(buff);
-			opt_assert(line.size() == rsrcCount);
+			opt_assert(line.size() == rsrcCount, "Line in \"Allocated\" section has invalid amount of resources");
 			procAllocatedRsrc.push_back(std::move(line));
 		}
 		
 		// empty line was consumed by prev fn, so we shouldn't check for it.
 		
 		// "Maximum" section -- each line representing a process
-		opt_assert(nextLine() == "Maximum");
+		opt_assert(nextLine() == "Maximum", "\"Maximum\" header missing or not in order");
 		std::vector<std::vector<int>> procMaximumRsrc;
 		while (std::getline(file, buff), !buff.empty()) {
 			auto line = spaceSeparatedNumbers(buff);
-			opt_assert(line.size() == rsrcCount);
+			opt_assert(line.size() == rsrcCount, "Line in \"Maximum\" section has invalid amount of resources");
 			procMaximumRsrc.push_back(std::move(line));
 		}
 		
 		// empty line was consumed by prev fn, so we shouldn't check for it.
 		
 		// assert that both allocated and maximum are the same length.
-		opt_assert(procAllocatedRsrc.size() == procMaximumRsrc.size());
+		opt_assert(procAllocatedRsrc.size() == procMaximumRsrc.size(), "\"Allocated\" and \"Maximum\" do not define same amount of processes");
 		
 		// assert that there are at least some processes
 		auto procCount = procMaximumRsrc.size();
-		opt_assert(procCount);
+		opt_assert(procCount > 0, "No processes defined");
 		
 		// Finally, format everything correctly...
 		
-		std::vector<Resource> resources;
-		for (size_t i = 0; i < rsrcCount; i++) {
-			resources.push_back({
-				.available = 0,
-				.total = rsrcTotals[i],
-			});
+		std::vector<Resource> resources; resources.reserve(rsrcCount);
+		if (rsrcIsTotal) {
+			for (const auto& item : rsrcInfo)
+				resources.push_back({ .available = 0, .total = item, });
+		} else {
+			for (const auto& item : rsrcInfo)
+				resources.push_back({ .available = item, .total = 0, });
 		}
 		
 		std::vector<Process> processes;
@@ -169,11 +199,13 @@ namespace BankerData {
 			.resources = resources,
 			.processes = processes,
 		};
-		result.updateResources();
+		if (rsrcIsTotal) result.updateResourceAvailables();
+		else             result.updateResourceTotals();
 		
 		// and return it!
 		return std::make_optional(result);
 		
 		#undef opt_assert
+		#undef opt_assert_p
 	}
 };
