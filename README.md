@@ -59,12 +59,26 @@ So there's a matrix of processes and their resource usage. Processes have a curr
 
 C is good for interfacing with the Operating System. C++ is good for.. writing actual programs (okay, if I had my say then I'd be using Rust, but that's out of the question) and I need it for stuff like vectors and other good STL things. If I was still using C in this project, I'd have to malloc and free stuff, and I don't wanna bother with that.
 
-## [Data](src/data.txt) file format
+## [Data](data1.txt) file format
 
-Okay, so this is indeed those space separated values. However, I also have some neat headers on them.
+Here's an example to check against, if you need:
 
-You define a resource at the very top. Its position is significant, so you define A first, then B, and so on -- specifying a total amount of available instances for each resource. I'll convert the positions to letters at runtime, it's fine. So if I wanted 3 As, 2 Bs, and 5 Cs, I'd write `3 2 5`. Their name is *implied by their position*.
+```
+Resources
+Total
+10 5 7
 
-Anyway, that's kinda an over-complicated explanation. I'll see how easy that is to parse later. The position significance continues with the Allocated and Maximum lists, where the current line determines which process we're talking about.
+Allocated
+0 1 0
+2 0 0
 
-I think that's intuitive enough. I don't include "Available" in the format because you can derive that from summing the Allocated resources and subtracting that from the total resources.
+Maximum
+7 5 3
+3 2 2
+```
+
+You define a resource at the very top, and you can either specify it in "total instances of the resource" *or* "remaining instances of the resource" with `Total` and `Available` respectively. Its position is significant, so you define A first, then B, and so on -- specifying a total amount of available instances for each resource.
+
+I convert the resources' positions to letters at runtime. For example, if I wanted 3 As, 2 Bs, and 5 Cs, I'd write `3 2 5`. Their name is implied by their position.
+
+The position significance continues with the `Allocated` and `Maximum` matrices, where the current line determines which process we're talking about. Obviously, both the Allocated and Maximum must match in length.
