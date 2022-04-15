@@ -6,6 +6,25 @@ Assignment 2
 
 This consists of one program that implements the Banker's Algorithm with an example data set. This data set will be read from a file in the "space-separated value" format, which is a less practical and more silly version of the "comma-separated value" format supported by many applications.
 
+## Instructions
+
+Once built, this program takes one data file as its only argument, and then checks if that data is representing a system in a safe state.
+
+```
+./build.sh
+# ./out/banker someData.txt
+./out/banker data1.txt
+```
+
+The build script also provides a subcommand that runs `banker` with all three example data files, for convenience:
+```
+./build.sh run
+```
+
+## In Action
+
+![A screenshot of all the example data files being checked by the Banker's Algorithm program](.readme/exampleData.png)
+
 ## Requirements
 
 Here's the requirements doc, converted to Markdown for easy reading within editors:
